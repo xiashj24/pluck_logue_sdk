@@ -66,7 +66,7 @@ const __unit_header unit_header_t unit_header = {
 
         // 8 Edit menu parameters
         {0, 1023, 0, 1023, k_unit_param_type_none, 0, 0, 0, {"NOISE CUTOFF"}},
-        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
+        {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"PICKUP POS"}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},

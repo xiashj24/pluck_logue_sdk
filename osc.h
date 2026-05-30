@@ -58,6 +58,7 @@ public:
     DAMP = 0U,
     DECAY,
     NOISE_CUTOFF,
+    PICKUP_POS,
     NUM_PARAMS
   };
 
@@ -67,12 +68,14 @@ public:
     float damp;
     float decay;
     float noise_cutoff;
+    float pickup_pos;
 
     void reset()
     {
       damp = 0.5f;
       decay = 1.f;
       noise_cutoff = 1.f;
+      pickup_pos = 0.f;
     }
 
     Params() { reset(); }
@@ -92,6 +95,10 @@ public:
 
     case NOISE_CUTOFF:
       params.noise_cutoff = norm_to_freq(param_10bit_to_f32(value));
+      break;
+
+    case PICKUP_POS:
+      params.pickup_pos = param_10bit_to_f32(value);
       break;
 
     default:
@@ -128,9 +135,10 @@ public:
     // Caching current parameter values. Consider smoothing sensitive parameters in audio loop
     const Params p = params;
 
-    damp_filter.set_damp(p.damp);
-
     const float string_len = compute_string_len_samples(pitch);
+
+    // damp filter
+    damp_filter.set_damp(p.damp);
 
     // decay time
     const float rt60_samples = 0.07f * std::pow(2.f, p.decay * 8.f) * getSampleRate();
@@ -144,16 +152,22 @@ public:
 
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
+      const float delay_out = delay.read_lagrange_2nd(string_len);
+
+      out[0] = delay_out;
+
       // === feedback loop start ===
-      float y = delay.read_lagrange_2nd(string_len);
+      float v = delay_out;
 
-      y = damp_filter.process_sample(y);
+      // damp filter
+      v = damp_filter.process_sample(v);
 
-      y *= gain;
+      // gain adjustment
+      v *= gain;
 
-      delay.write(y);
+      // write back
+      delay.write(v);
       // === feedback loop end ===
-      out[0] = y;
     }
   }
 

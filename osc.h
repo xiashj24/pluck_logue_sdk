@@ -42,6 +42,7 @@
 
 #include "dsp/utility.hpp"
 #include "dsp/delayline.hpp"
+#include "dsp/fir.hpp"
 
 class Osc : public Processor
 {
@@ -53,21 +54,18 @@ public:
   // audio parameters
   enum
   {
-    SHAPE = 0U,
-    ALT,
+    DAMP = 0U,
     NUM_PARAMS
   };
 
   // Note: Make sure that default param values correspond to declarations in header.c
   struct Params
   {
-    float shape;
-    float alt;
+    float damp;
 
     void reset()
     {
-      shape = 0.f;
-      alt = 0.f;
+      damp = 0.5f;
     }
 
     Params() { reset(); }
@@ -77,13 +75,10 @@ public:
   {
     switch (index)
     {
-    case SHAPE:
-      params.shape = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+    case DAMP:
+      params.damp = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
 
-    case ALT:
-      params.alt = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
-      break;
     default:
       break;
     }
@@ -92,6 +87,7 @@ public:
   void init(float *) override final
   {
     params.reset();
+    damp_filter.reset();
   }
 
   void noteOn(uint8_t note, uint8_t velocity) override final
@@ -99,6 +95,8 @@ public:
     pitch = note_to_hz(note);
 
     delay.clear();
+    damp_filter.reset();
+
     const float string_len = compute_string_len_samples(pitch);
     for (size_t i = 0; i < static_cast<size_t>(string_len) + 1; ++i)
     {
@@ -112,6 +110,8 @@ public:
     // Caching current parameter values. Consider smoothing sensitive parameters in audio loop
     const Params p = params;
 
+    damp_filter.set_damp(p.damp);
+
     const float string_len = compute_string_len_samples(pitch);
 
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
@@ -119,9 +119,8 @@ public:
       // === feedback loop start ===
       float y = delay.read_lagrange_2nd(string_len);
 
-      y = (y + prev_sample) * 0.5f;
-      prev_sample = y;
-      
+      y = damp_filter.process_sample(y);
+
       delay.write(y);
       // === feedback loop end ===
       out[0] = y;
@@ -134,7 +133,8 @@ private:
 
   float compute_string_len_samples(float pitch_hz)
   {
-    const float delay_samples = getSampleRate() / pitch_hz;
+    // subract the extra 1 sample delay introduced by 3-tap FIR damping filter
+    const float delay_samples = getSampleRate() / pitch_hz - 1.f;
     return clampf(delay_samples, 1.f,
                   static_cast<float>(N - 2)); // leave enough margin for lagrange interpolation
   }
@@ -142,5 +142,5 @@ private:
   static constexpr size_t N = 4096;
   DelayLine<N> delay;
 
-  float prev_sample = 0.f;
+  SymmetricFir3 damp_filter;
 };

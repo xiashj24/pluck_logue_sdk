@@ -69,6 +69,7 @@ public:
     NOISE_CUTOFF,
     PICKUP_POS,
     DRIVE,
+    STIFFNESS,
     NUM_PARAMS
   };
 
@@ -80,6 +81,7 @@ public:
     float noise_cutoff;
     float pickup_pos;
     float drive;
+    float stiffness;
 
     void reset()
     {
@@ -88,6 +90,7 @@ public:
       noise_cutoff = 1.f;
       pickup_pos = 0.f;
       drive = 0.f;
+      stiffness = 0.f;
     }
 
     Params() { reset(); }
@@ -117,6 +120,10 @@ public:
       params.drive = param_10bit_to_f32(value);
       break;
 
+    case STIFFNESS:
+      params.stiffness = param_10bit_to_f32(value);
+      break;
+
     default:
       break;
     }
@@ -127,6 +134,7 @@ public:
     params.reset();
     damp_filter.reset();
     noise_filter.reset();
+    curved_bridge = 0.f;
   }
 
   void noteOn(uint8_t note, uint8_t velocity) override final
@@ -136,6 +144,7 @@ public:
     delay.clear();
     damp_filter.reset();
     noise_filter.reset();
+    curved_bridge = 0.f;
 
     const float string_len = compute_string_len_samples(pitch);
     for (size_t i = 0; i < static_cast<size_t>(string_len) + 1; ++i)
@@ -169,9 +178,15 @@ public:
     // pickup comb filter
     const float comb_delay_samples = 0.5f * p.pickup_pos * getSampleRate() / pitch;
 
+    // stiffness: [0, 1] -> [0, 0.01]
+    const float bridge_amount = p.stiffness * p.stiffness * 0.01f; 
+
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
-      const float delay_out = delay.read_lagrange_2nd(string_len);
+      // curved bridge shortens the string by 1% maximum
+      float string_len_modulated = string_len * (1 - curved_bridge * bridge_amount);
+
+      const float delay_out = delay.read_lagrange_2nd(string_len_modulated);
 
       float y = delay_out;
 
@@ -180,6 +195,9 @@ public:
       {
         y -= delay.read_linear(comb_delay_samples);
       }
+
+      // update curved bridge from output
+      curved_bridge = compute_curved_bridge(y);
 
       y = overdrive(y, p.drive);
 
@@ -217,4 +235,16 @@ private:
 
   SymmetricFir3 damp_filter;
   OnePole noise_filter;
+
+  float curved_bridge = 0.f;
+
+  inline float compute_curved_bridge(float x) const
+  {
+    // inspired by the design of Sitar bridge
+    // courtesy to Emilie Gillet (Mutable Instruments Rings)
+    // https://github.com/pichenettes/eurorack/blob/08460a69a7e1f7a81c5a2abcc7189c9a6b7208d4/rings/dsp/string.cc#L184
+    float sign = x > 0.f ? 1.f : -1.5f;
+    x = std::abs(x) - 0.025f; // asymmetric
+    return (std::abs(x) + x) * sign;
+  }
 };

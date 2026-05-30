@@ -118,6 +118,10 @@ public:
     {
       // === feedback loop start ===
       float y = delay.read_lagrange_2nd(string_len);
+
+      y = (y + prev_sample) * 0.5f;
+      prev_sample = y;
+      
       delay.write(y);
       // === feedback loop end ===
       out[0] = y;
@@ -137,4 +141,6 @@ private:
 
   static constexpr size_t N = 4096;
   DelayLine<N> delay;
+
+  float prev_sample = 0.f;
 };

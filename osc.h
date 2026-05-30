@@ -43,6 +43,7 @@
 #include "dsp/utility.hpp"
 #include "dsp/delayline.hpp"
 #include "dsp/fir.hpp"
+#include "dsp/one_pole.hpp"
 
 class Osc : public Processor
 {
@@ -56,6 +57,7 @@ public:
   {
     DAMP = 0U,
     DECAY,
+    NOISE_CUTOFF,
     NUM_PARAMS
   };
 
@@ -64,11 +66,13 @@ public:
   {
     float damp;
     float decay;
+    float noise_cutoff;
 
     void reset()
     {
       damp = 0.5f;
       decay = 1.f;
+      noise_cutoff = 1.f;
     }
 
     Params() { reset(); }
@@ -81,9 +85,13 @@ public:
     case DAMP:
       params.damp = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
-    
+
     case DECAY:
       params.decay = param_10bit_to_f32(value);
+      break;
+
+    case NOISE_CUTOFF:
+      params.noise_cutoff = norm_to_freq(param_10bit_to_f32(value));
       break;
 
     default:
@@ -95,6 +103,7 @@ public:
   {
     params.reset();
     damp_filter.reset();
+    noise_filter.reset();
   }
 
   void noteOn(uint8_t note, uint8_t velocity) override final
@@ -103,11 +112,13 @@ public:
 
     delay.clear();
     damp_filter.reset();
+    noise_filter.reset();
 
     const float string_len = compute_string_len_samples(pitch);
     for (size_t i = 0; i < static_cast<size_t>(string_len) + 1; ++i)
     {
       float noise = osc_white();
+      noise = noise_filter.process_sample(noise);
       delay.write(noise);
     }
   }
@@ -127,6 +138,9 @@ public:
     const float fir_gain = damp_filter.magnitude_at(w);
     const float exponent = std::max(-10.f * string_len / rt60_samples, -127.f / 12.f);
     const float gain = std::min(std::pow(2.f, exponent) / std::max(fir_gain, 0.001f), 1.f);
+
+    // input noise cutoff
+    noise_filter.set_lp(p.noise_cutoff / getSampleRate());
 
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
@@ -159,4 +173,5 @@ private:
   DelayLine<N> delay;
 
   SymmetricFir3 damp_filter;
+  OnePole noise_filter;
 };

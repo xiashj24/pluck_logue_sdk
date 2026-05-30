@@ -117,7 +117,7 @@ public:
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
       // === feedback loop start ===
-      float y = delay.read_linear(string_len);
+      float y = delay.read_lagrange_2nd(string_len);
       delay.write(y);
       // === feedback loop end ===
       out[0] = y;
@@ -132,7 +132,7 @@ private:
   {
     const float delay_samples = getSampleRate() / pitch_hz;
     return clampf(delay_samples, 1.f,
-                  static_cast<float>(N - 1));
+                  static_cast<float>(N - 2)); // leave enough margin for lagrange interpolation
   }
 
   static constexpr size_t N = 4096;

@@ -49,8 +49,8 @@ const __unit_header unit_header_t unit_header = {
     .dev_id = 0x0U,                                        // Developer ID. See https://github.com/korginc/logue-sdk/blob/master/developer_ids.md
     .unit_id = 0x0U,                                       // ID for this unit. Scoped within the context of a given dev_id.
     .version = 0x00010000U,                                // This unit's version: major.minor.patch (major<<16 minor<<8 patch).
-    .name = "dummy",                                       // Name for this unit, will be displayed on device
-    .num_params = 3,                                       // Number of valid parameter descriptors. (max. 10)
+    .name = "pluck",                                       // Name for this unit, will be displayed on device
+    .num_params = 2,                                       // Number of valid parameter descriptors. (max. 10)
     .params = {
         // Format:
         // min, max, center (unused), default, type, frac. bits, frac. mode, <reserved>, name
@@ -65,7 +65,7 @@ const __unit_header unit_header_t unit_header = {
         {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"ALT"}},
 
         // 8 Edit menu parameters
-        {0, 3, 0, 1, k_unit_param_type_strings, 0, 0, 0, {"PARAM3"}}, // Example of a strings type parameter
+        {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
         {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},

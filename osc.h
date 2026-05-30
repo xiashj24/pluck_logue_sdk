@@ -2,7 +2,7 @@
 /*
     BSD 3-Clause License
 
-    Copyright (c) 2023, KORG INC.
+    Copyright (c) 2026, KORG INC.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -30,28 +30,30 @@
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-//*/
+*/
 
-/*
- *  File: osc.h
- *
- *  Dummy oscillator template instance.
- *
- */
 #include "processor.h"
 #include "unit_osc.h"
+
+/**
+ * @brief karplus-strong wavegudie synthesis
+ * @author Shijie Xia (xiashj@korg.co.jp)
+ */
+
+#include "dsp/utility.hpp"
 
 class Osc : public Processor
 {
 public:
-  uint32_t getBufferSize() const override final { return 0; } // NTS-1 osc do not support sdram allocation
+  uint32_t getBufferSize() const override final { return 0; } // ununsed
+  void setPitch(float w0) {}                                  // ununsed
+  void setShapeLfo(float lfo) {}                              // ununsed
 
   // audio parameters
   enum
   {
     SHAPE = 0U,
     ALT,
-    PARAM3,
     NUM_PARAMS
   };
 
@@ -60,25 +62,14 @@ public:
   {
     float shape;
     float alt;
-    uint32_t param3;
 
     void reset()
     {
       shape = 0.f;
       alt = 0.f;
-      param3 = 1;
     }
 
     Params() { reset(); }
-  };
-
-  enum
-  {
-    PARAM3_VALUE0 = 0,
-    PARAM3_VALUE1,
-    PARAM3_VALUE2,
-    PARAM3_VALUE3,
-    NUM_PARAM3_VALUES,
   };
 
   void setParameter(uint8_t index, int32_t value) override final
@@ -86,90 +77,48 @@ public:
     switch (index)
     {
     case SHAPE:
-      params_.shape = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+      params.shape = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
 
     case ALT:
-      params_.alt = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+      params.alt = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
-
-    case PARAM3:
-      params_.param3 = value; // string type, receiving index
-      break;
-
     default:
       break;
     }
   }
 
-  const char *getParameterStrValue(uint8_t index, int32_t value) const override final
-  {
-    // Note: String memory must be accessible even after function returned.
-    //       It can be assumed that caller will have copied or used the string
-    //       before the next call to getParameterStrValue
-    static const char *param3_strings[NUM_PARAM3_VALUES] = {
-        "VAL 0",
-        "VAL 1",
-        "VAL 2",
-        "VAL 3",
-    };
-
-    switch (index)
-    {
-    case PARAM3:
-      if (value >= PARAM3_VALUE0 && value < NUM_PARAM3_VALUES)
-        return param3_strings[value];
-      break;
-    default:
-      break;
-    }
-
-    return nullptr;
-  }
-
-  // life-cycle methods
   void init(float *) override final
   {
-    params_.reset();
-    phasor_ = 0.f;
+    params.reset();
   }
 
-  // audio processing callbacks
-
-  // set frequency in digital w (w = f/samplerate, 0.5 is Nyquist)
-  void setPitch(float w0)
+  void noteOn(uint8_t note, uint8_t velocity) override final
   {
-    w_ = w0; // use this as the phase increment for oscillator
-  }
-
-  // lfo in (-1.0f, 1.0f)
-  void setShapeLfo(float lfo)
-  {
-    lfo_ = lfo;
+    pitch = note_to_hz(note);
   }
 
   void process(const float *__restrict in, float *__restrict out, uint32_t frames) override final
   {
     // Caching current parameter values. Consider smoothing sensitive parameters in audio loop
-    const Params p = params_;
+    const Params p = params;
 
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
       // Process/generate samples here
 
-      // phasor update
-      phasor_ = fmodf(phasor_ + w_, 1.f);
+      phase += pitch / getSampleRate();
+      if (phase >= 1.f)
+      {
+        phase -= 1.f;
+      }
 
-      // read sine wave table
-      out[0] = osc_sinf(phasor_);
+      out[0] = osc_sinf(phase);
     }
   }
 
 private:
-  Params params_;
-  float w_;
-  float lfo_;
-
-  // local variables related to audio processing
-  float phasor_;
+  Params params;
+  float phase = 0.f; // phase ramp up from 0 to 1
+  float pitch = 440.f;
 };

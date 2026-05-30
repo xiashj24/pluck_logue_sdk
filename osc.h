@@ -45,6 +45,15 @@
 #include "dsp/fir.hpp"
 #include "dsp/one_pole.hpp"
 
+inline float overdrive(float x, float drive)
+{
+  const float d = clampf(drive, 0.f, 1.f);
+  const float pre_gain = d * d * d * 24.f;
+  const float distorted = fast_tanh(x * pre_gain);
+  const float mix = d * (2.f - d);
+  return lerpf(x, distorted, mix);
+}
+
 class Osc : public Processor
 {
 public:
@@ -59,6 +68,7 @@ public:
     DECAY,
     NOISE_CUTOFF,
     PICKUP_POS,
+    DRIVE,
     NUM_PARAMS
   };
 
@@ -69,6 +79,7 @@ public:
     float decay;
     float noise_cutoff;
     float pickup_pos;
+    float drive;
 
     void reset()
     {
@@ -76,6 +87,7 @@ public:
       decay = 1.f;
       noise_cutoff = 1.f;
       pickup_pos = 0.f;
+      drive = 0.f;
     }
 
     Params() { reset(); }
@@ -99,6 +111,10 @@ public:
 
     case PICKUP_POS:
       params.pickup_pos = param_10bit_to_f32(value);
+      break;
+
+    case DRIVE:
+      params.drive = param_10bit_to_f32(value);
       break;
 
     default:
@@ -164,6 +180,8 @@ public:
       {
         y -= delay.read_linear(comb_delay_samples);
       }
+
+      y = overdrive(y, p.drive);
 
       out[0] = y;
 

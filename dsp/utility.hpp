@@ -27,6 +27,7 @@ inline float clampf(float x, float lo, float hi)
   return std::min(std::max(x, lo), hi);
 }
 
+// https://www.desmos.com/calculator/merzdbysff
 inline float fast_tanh(float x)
 {
   return x * (27.f + x * x) / (27.f + 9.f * x * x);

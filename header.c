@@ -50,7 +50,7 @@ const __unit_header unit_header_t unit_header = {
     .unit_id = 0x0U,                                       // ID for this unit. Scoped within the context of a given dev_id.
     .version = 0x00010000U,                                // This unit's version: major.minor.patch (major<<16 minor<<8 patch).
     .name = "pluck",                                       // Name for this unit, will be displayed on device
-    .num_params = 3,                                       // Number of valid parameter descriptors. (max. 10)
+    .num_params = 4,                                       // Number of valid parameter descriptors. (max. 10)
     .params = {
         // Format:
         // min, max, center (unused), default, type, frac. bits, frac. mode, <reserved>, name

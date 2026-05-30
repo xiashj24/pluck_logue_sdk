@@ -150,11 +150,22 @@ public:
     // input noise cutoff
     noise_filter.set_lp(p.noise_cutoff / getSampleRate());
 
+    // pickup comb filter
+    const float comb_delay_samples = 0.5f * p.pickup_pos * getSampleRate() / pitch;
+
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
       const float delay_out = delay.read_lagrange_2nd(string_len);
 
-      out[0] = delay_out;
+      float y = delay_out;
+
+      // apply comb filter outside the loop
+      if (comb_delay_samples > 1.f)
+      {
+        y -= delay.read_linear(comb_delay_samples);
+      }
+
+      out[0] = y;
 
       // === feedback loop start ===
       float v = delay_out;

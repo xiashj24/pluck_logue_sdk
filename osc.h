@@ -41,6 +41,7 @@
  */
 
 #include "dsp/utility.hpp"
+#include "dsp/delayline.hpp"
 
 class Osc : public Processor
 {
@@ -96,6 +97,14 @@ public:
   void noteOn(uint8_t note, uint8_t velocity) override final
   {
     pitch = note_to_hz(note);
+
+    delay.clear();
+    const float string_len = compute_string_len_samples(pitch);
+    for (size_t i = 0; i < static_cast<size_t>(string_len) + 1; ++i)
+    {
+      float noise = osc_white();
+      delay.write(noise);
+    }
   }
 
   void process(const float *__restrict in, float *__restrict out, uint32_t frames) override final
@@ -103,22 +112,29 @@ public:
     // Caching current parameter values. Consider smoothing sensitive parameters in audio loop
     const Params p = params;
 
+    const float string_len = compute_string_len_samples(pitch);
+
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
-      // Process/generate samples here
-
-      phase += pitch / getSampleRate();
-      if (phase >= 1.f)
-      {
-        phase -= 1.f;
-      }
-
-      out[0] = osc_sinf(phase);
+      // === feedback loop start ===
+      float y = delay.read_linear(string_len);
+      delay.write(y);
+      // === feedback loop end ===
+      out[0] = y;
     }
   }
 
 private:
   Params params;
-  float phase = 0.f; // phase ramp up from 0 to 1
   float pitch = 440.f;
+
+  float compute_string_len_samples(float pitch_hz)
+  {
+    const float delay_samples = getSampleRate() / pitch_hz;
+    return clampf(delay_samples, 1.f,
+                  static_cast<float>(N - 1));
+  }
+
+  static constexpr size_t N = 4096;
+  DelayLine<N> delay;
 };

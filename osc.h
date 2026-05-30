@@ -55,6 +55,7 @@ public:
   enum
   {
     DAMP = 0U,
+    DECAY,
     NUM_PARAMS
   };
 
@@ -62,10 +63,12 @@ public:
   struct Params
   {
     float damp;
+    float decay;
 
     void reset()
     {
       damp = 0.5f;
+      decay = 1.f;
     }
 
     Params() { reset(); }
@@ -77,6 +80,10 @@ public:
     {
     case DAMP:
       params.damp = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+      break;
+    
+    case DECAY:
+      params.decay = param_10bit_to_f32(value);
       break;
 
     default:
@@ -114,12 +121,21 @@ public:
 
     const float string_len = compute_string_len_samples(pitch);
 
+    // decay time
+    const float rt60_samples = 0.07f * std::pow(2.f, p.decay * 8.f) * getSampleRate();
+    const float w = 2 * M_PI / (string_len + 1.f);
+    const float fir_gain = damp_filter.magnitude_at(w);
+    const float exponent = std::max(-10.f * string_len / rt60_samples, -127.f / 12.f);
+    const float gain = std::min(std::pow(2.f, exponent) / std::max(fir_gain, 0.001f), 1.f);
+
     for (const float *out_end = out + frames; out != out_end; in += 2, out += 1)
     {
       // === feedback loop start ===
       float y = delay.read_lagrange_2nd(string_len);
 
       y = damp_filter.process_sample(y);
+
+      y *= gain;
 
       delay.write(y);
       // === feedback loop end ===

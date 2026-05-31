@@ -44,6 +44,7 @@
 #include "dsp/delayline.hpp"
 #include "dsp/fir.hpp"
 #include "dsp/one_pole.hpp"
+#include "dsp/dc_blocker.hpp"
 
 inline float overdrive(float x, float drive)
 {
@@ -135,6 +136,7 @@ public:
     damp_filter.reset();
     noise_filter.reset();
     curved_bridge = 0.f;
+    dc_blocker.reset(getSampleRate());
   }
 
   void noteOn(uint8_t note, uint8_t velocity) override final
@@ -196,6 +198,9 @@ public:
         y -= delay.read_linear(comb_delay_samples);
       }
 
+      // dc blocker
+      y = dc_blocker.process_sample(y);
+
       // update curved bridge from output
       curved_bridge = compute_curved_bridge(y);
 
@@ -235,6 +240,7 @@ private:
 
   SymmetricFir3 damp_filter;
   OnePole noise_filter;
+  DcBlocker dc_blocker;
 
   float curved_bridge = 0.f;
 

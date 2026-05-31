@@ -2,7 +2,7 @@
 # Configuration for Makefile
 #
 
-PROJECT := dummy_osc
+PROJECT := pluck
 PROJECT_TYPE := osc
 
 ##############################################################################

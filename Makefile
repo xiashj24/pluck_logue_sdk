@@ -39,7 +39,7 @@ include config.mk
 #
 
 # Define project name here
-PROJECT ?= my_unit
+PROJECT ?= pluck
 
 ##############################################################################
 # Setup cross compilation

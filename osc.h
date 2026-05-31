@@ -71,6 +71,7 @@ public:
     PICKUP_POS,
     DRIVE,
     STIFFNESS,
+    NOISE_FM,
     NUM_PARAMS
   };
 
@@ -83,6 +84,7 @@ public:
     float pickup_pos;
     float drive;
     float stiffness;
+    float noise_fm_amount;
 
     void reset()
     {
@@ -92,6 +94,7 @@ public:
       pickup_pos = 0.f;
       drive = 0.f;
       stiffness = 0.f;
+      noise_fm_amount = 0.f;
     }
 
     Params() { reset(); }
@@ -123,6 +126,10 @@ public:
 
     case STIFFNESS:
       params.stiffness = param_10bit_to_f32(value);
+      break;
+
+    case NOISE_FM:
+      params.noise_fm_amount = param_10bit_to_f32(value);
       break;
 
     default:
@@ -188,8 +195,13 @@ public:
       // curved bridge shortens the string by 1% maximum
       float string_len_modulated = string_len * (1 - curved_bridge * bridge_amount);
 
+      // noise FM on string length
+      string_len_modulated = string_len_modulated * (1.f + osc_white() * p.noise_fm_amount * 0.025f);
+
+      // read delayline with modulated length
       const float delay_out = delay.read_lagrange_2nd(string_len_modulated);
 
+      // post loop output path
       float y = delay_out;
 
       // apply comb filter outside the loop
